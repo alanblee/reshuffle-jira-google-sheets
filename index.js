@@ -1,7 +1,7 @@
 require("dotenv").config();
 const { Reshuffle } = require("reshuffle");
 const { JiraConnector } = require("reshuffle-jira-connector");
-const { MondayConnector } = require("reshuffle-monday-connector");
+
 (async () => {
   const app = new Reshuffle();
 
@@ -12,11 +12,6 @@ const { MondayConnector } = require("reshuffle-monday-connector");
     password: process.env.JIRA_PASSWORD,
     baseURL: process.env.RUNTIME_BASE_URL,
   });
-  const monday = new MondayConnector(app, {
-    token: process.env.MONDAY_TOKEN,
-    baseURL: process.env.RUNTIME_BASE_URL,
-  });
-  const mondayBoard = Number(process.env.MONDAY_BOARD_ID);
 
   jira.on({ jiraEvent: "jira:issue_created" }, (event, app) => {
     console.log(event.webhookEvent);
