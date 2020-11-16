@@ -1,0 +1,26 @@
+{
+  "name": "reshuffle-jira-google-sheets",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alanblee/reshuffle-jira-google-sheets.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/alanblee/reshuffle-jira-google-sheets/issues"
+  },
+  "homepage": "https://github.com/alanblee/reshuffle-jira-google-sheets#readme",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "reshuffle": "^1.0.3",
+    "reshuffle-google-connectors": "0.0.6",
+    "reshuffle-jira-connector": "0.0.2"
+  }
+}
