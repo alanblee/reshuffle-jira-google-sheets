@@ -27,33 +27,52 @@ const { GoogleSheetsConnector } = require("reshuffle-google-connectors");
       id,
       fields: { summary, description },
     } = event.issue;
-    // status: { name },
-    // assignee: assignee ? { displayName } : "null" ,
     const sheetId = 0;
     const values = [
       id,
       summary,
       description,
       event.issue.fields.status.name,
-      event.issue.fields.assignee.displayName
+      event.issue.fields.assignee
         ? event.issue.fields.assignee.displayName
         : "unassigned",
     ];
     await googleSheets.addRow(sheetId, values);
   });
 
-  const myHandler = async (event, app) => {
+  googleSheets.on({}, async (event, app) => {
     if (
       event.worksheetsChanged[0] &&
       event.worksheetsChanged[0].rowsChanged[0]
     ) {
       const { curr, prev } = event.worksheetsChanged[0].rowsChanged[0];
+
+      // Need to find the transition ids to move the issues around
+      const { transitions } = await jira
+        .sdk()
+        .listTransitions(curr["Issue ID"]);
+      let transitionId = {};
+      for (let status of transitions) {
+        if (!transitionId[status.name]) {
+          transitionId[status.name] = status.id;
+        }
+      }
+
       let updates = { fields: {} };
       for (let key in prev) {
         if (prev[key] !== curr[key]) {
-          updates = {
-            fields: { ...updates.fields, [[key.toLowerCase()]]: curr[key] },
-          };
+          if (curr[key] in transitionId) {
+            transitionId = { id: transitionId[curr[key]] };
+            await jira.sdk().transitionIssue(curr["Issue ID"], {
+              transition: {
+                id: transitionId.id,
+              },
+            });
+          } else {
+            updates = {
+              fields: { ...updates.fields, [[key.toLowerCase()]]: curr[key] },
+            };
+          }
         }
       }
       // jira update
@@ -61,9 +80,7 @@ const { GoogleSheetsConnector } = require("reshuffle-google-connectors");
         .sdk()
         .updateIssue(curr["Issue ID"], updates);
     }
-  };
-
-  googleSheets.on({}, myHandler);
+  });
 
   app.start(8000);
 })().catch(console.error);
