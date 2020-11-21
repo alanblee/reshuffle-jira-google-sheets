@@ -10,9 +10,10 @@ const { GoogleSheetsConnector } = require("reshuffle-google-connectors");
     host: process.env.JIRA_HOST,
     protocol: process.env.JIRA_PROTOCOL,
     username: process.env.JIRA_USERNAME,
-    password: process.env.JIRA_PASSWORD,
+    password: process.env.JIRA_TOKEN,
     baseURL: process.env.RUNTIME_BASE_URL,
   });
+
   // Google Sheets Config
   const googleSheets = new GoogleSheetsConnector(app, {
     credentials: {
@@ -22,24 +23,31 @@ const { GoogleSheetsConnector } = require("reshuffle-google-connectors");
     sheetsId: process.env.GOOGLE_SHEET_ID,
   });
 
+  // When new issue created on jira, a new row is added to the google sheets
   jira.on({ jiraEvent: "jira:issue_created" }, async (event, app) => {
     const {
       id,
-      fields: { summary, description },
+      fields: {
+        summary,
+        description,
+        status: { name },
+      },
     } = event.issue;
+
     const sheetId = 0;
     const values = [
       id,
       summary,
       description,
-      event.issue.fields.status.name,
+      name,
       event.issue.fields.assignee
         ? event.issue.fields.assignee.displayName
-        : "unassigned",
+        : "Not Assigned",
     ];
     await googleSheets.addRow(sheetId, values);
   });
 
+  // When google sheets is updated, issue on jira will be updated - refresh on page required to see change
   googleSheets.on({}, async (event, app) => {
     if (
       event.worksheetsChanged[0] &&
@@ -58,9 +66,13 @@ const { GoogleSheetsConnector } = require("reshuffle-google-connectors");
         }
       }
 
-      let updates = { fields: {} };
+      let fieldChanges = { fields: {} };
       for (let key in prev) {
         if (prev[key] !== curr[key]) {
+          // Hard to update the assignee
+          if (key === "Assignee" || key === "Issue ID") {
+            continue;
+          }
           if (curr[key] in transitionId) {
             transitionId = { id: transitionId[curr[key]] };
             await jira.sdk().transitionIssue(curr["Issue ID"], {
@@ -69,8 +81,11 @@ const { GoogleSheetsConnector } = require("reshuffle-google-connectors");
               },
             });
           } else {
-            updates = {
-              fields: { ...updates.fields, [[key.toLowerCase()]]: curr[key] },
+            fieldChanges = {
+              fields: {
+                ...fieldChanges.fields,
+                [[key.toLowerCase()]]: curr[key],
+              },
             };
           }
         }
@@ -78,7 +93,7 @@ const { GoogleSheetsConnector } = require("reshuffle-google-connectors");
       // jira update
       const updateIssue = await jira
         .sdk()
-        .updateIssue(curr["Issue ID"], updates);
+        .updateIssue(curr["Issue ID"], fieldChanges);
     }
   });
 
